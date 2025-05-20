@@ -1,23 +1,32 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
+const express = require('express');
+const qrcode = require('qrcode');
 
-// Inisialisasi client dengan auth lokal
+const app = express();
+let qrCodeData = '';
+
+// Inisialisasi bot WhatsApp
 const client = new Client({
-    authStrategy: new LocalAuth()
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    },
 });
 
-// Tampilkan QR code di terminal saat pertama kali login
-client.on('qr', qr => {
-    qrcode.generate(qr, { small: true });
+// QR code muncul saat belum login
+client.on('qr', async (qr) => {
+    qrCodeData = await qrcode.toDataURL(qr);
+    console.log('QR code diperbarui!');
 });
 
-// Ketika bot sudah siap
+// Saat bot siap digunakan
 client.on('ready', () => {
     console.log('Bot WhatsApp siap digunakan!');
 });
 
-// Balasan otomatis saat pesan masuk
-client.on('message', message => {
+// Perintah otomatis saat pesan masuk
+client.on('message', (message) => {
     if (message.body.toLowerCase() === '.list') {
         const pricelist = `
 *APP PREMIUM ✅*
@@ -103,5 +112,18 @@ Untuk order, silakan chat admin langsung ya!
     }
 });
 
-// Jalankan bot
+// Web server untuk QR code
+app.get('/', (req, res) => {
+    if (qrCodeData) {
+        res.send(`<h2>Scan QR WhatsApp:</h2><img src="${qrCodeData}" />`);
+    } else {
+        res.send('QR belum tersedia. Silakan refresh beberapa detik lagi.');
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Web server aktif di http://localhost:${PORT}`);
+});
+
 client.initialize();
